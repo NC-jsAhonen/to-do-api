@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Virtual Environment",
+      "type": "shell",
+      "command": "source .venv/bin/activate",
+      "windows": {
+        "command": "source .venv/bin/activate"
+      },
+      "group": "none",
+      "presentation": {
+        "reveal": "never",
+        "panel": "shared"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}
