@@ -14,10 +14,11 @@ Install Python (check the version in `.python-version`)
 Go to the root directory of this project and create the virtual environment, open it and install dependencies:
 
 ```bash
-python -m venv .venv` # .venv could be substituted with any path, if you wish to create the virual env elsewhere
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+`.venv` could be substituted with any path, if you wish to create the virual env elsewhere
 
 ## How to run the development environment
 
