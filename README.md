@@ -6,6 +6,7 @@ This is the API codebase of the To Do App.
 
 - Python (see `.python-version` for the current version in use)
 - Django and Django REST Framework
+- Pytest
 
 ## How to set up the development environment
 
@@ -35,6 +36,16 @@ To use a regular terminal, go to the root directory of this project, open the vi
 ```bash
 source .venv/bin/activate
 python manage.py runserver
+```
+
+## Tests
+
+The project uses Pytest unit tests.
+
+To run the tests, run the following command:
+
+```bash
+pytest
 ```
 
 ## Database
