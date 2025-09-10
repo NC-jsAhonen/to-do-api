@@ -11,3 +11,4 @@ pytest-factoryboy>=2.8.1
 pytest-django>=4.11.1
 requests>=2.30.0
 responses>=0.25.8
+gunicorn==21.2.0
