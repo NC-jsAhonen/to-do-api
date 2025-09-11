@@ -8,11 +8,17 @@ This is the API codebase of the To Do App.
 - Django and Django REST Framework
 - Pytest
 
-## How to set up the development environment
+## How to set up the local development environment
+
+There are two options for setting up and running the development environment locally:
+- Python virtual environment (venv)
+- Docker container
+
+### Python virtual environment
 
 Install Python (check the version in `.python-version`)
 
-Go to the root directory of this project and create the virtual environment, open it and install dependencies:
+Go to `to-do-api/todo_api/` and create the virtual environment, open it and install dependencies:
 
 ```bash
 python -m venv .venv
@@ -20,6 +26,40 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 `.venv` could be substituted with any path, if you wish to create the virual env elsewhere
+
+### Docker container
+
+You need to have Docker installed so that you can run `docker` commands.
+
+Go to `to-do-api/` directory, where the `Dockerfile` is, build the Docker image, create and run the container, and run the database migrations, with these commands:
+
+```bash
+docker build -t todo-api .
+docker run -d --name todo-api -p 8000:8000 todo-api
+docker exec -it todo-api python manage.py migrate
+```
+
+It's also recommended to create the Django super user for accessing the admin dashboard:
+
+```bash
+docker exec -it todo-api python manage.py createsuperuser
+```
+
+You will be asked to give a username, email (optional) and password (twice). After creating the super user, you can access the Django admin dashboard in `https://localhost:8000/admin/login` .
+
+All commands you need to run inside the container should be prefixed with:
+
+```bash
+docker exec -it todo-api
+```
+
+and you can enter inside the container with this command:
+
+```bash
+docker exec -it todo-api bash
+```
+
+and exit by running `exit`.
 
 ## How to run the development environment
 
