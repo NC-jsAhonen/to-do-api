@@ -127,3 +127,104 @@ You can view the current state of the migrations by running this:
 ```bash
 python manage.py showmigrations
 ```
+
+## Deployment Workflow for todo-api (Django, Docker, ECS Fargate)
+
+### 1. Prepare AWS Environment
+
+Install AWS CLI v2
+Configure credentials:
+
+```bash
+aws configure
+```
+
+Create IAM user `to-do-api-deploy` with programmatic access and attach to a group with:
+
+- AmazonEC2ContainerRegistryFullAccess
+- AmazonECS_FullAccess
+- (Optional) IAMFullAccess for setup
+
+### Build & Push Docker Image
+
+Replace the `<region>` and `<account_id>` with the region of your choice and the account id of the IAM user.
+
+```bash
+aws ecr create-repository --repository-name todo-api
+aws ecr get-login-password --region <region> docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com
+docker build -t todo-api .
+docker tag todo-api:latest <account_id>.dkr.ecr.<region>.amazonaws.com/todo-api:latest
+docker push <account_id>.dkr.ecr.<region>.amazonaws.com/todo-api:latest
+```
+
+### 3. Create ECS Cluster & Networking
+
+```bash
+aws ecs create-cluster --cluster-name todo-api-cluster
+```
+
+### 4. IAM Role for ECS Tasks
+
+```bash
+aws iam create-role --role-name ecsTaskExecutionRole --assume-role-policy-document '{ "Version":"2012-10-17", "Statement":[{"Effect":"Allow","Principal":{"Service":"ecs-tasks.amazonaws.com"}, "Action":"sts:AssumeRole"}]}'
+
+aws iam attach-role-policy --role-name ecsTaskExecutionRole --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+```
+
+### 5. Register Task Definition
+
+Rename `task-def.json.template` as `task-def.json` and replace the `<region>` and `<account_id>` in it.
+
+Register it:
+
+```bash
+aws ecs register-task-definition --cli-input-json file://task-def.json
+```
+
+### 6. Create Fargate Service
+
+```bash
+aws ecs create-service \
+  --cluster todo-api-cluster \
+  --service-name todo-api-service \
+  --task-definition todo-api-task \
+  --desired-count 1 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[<subnet_id>],securityGroups=[<sg_id>],assignPublicIp=ENABLED}"
+```
+
+### 7. Run Database Migrations (One-Off Task)
+
+```bash
+aws ecs run-task \
+  --cluster todo-api-cluster \
+  --launch-type FARGATE \
+  --task-definition todo-api-task \
+  --network-configuration "awsvpcConfiguration={subnets=[<subnet_id>],securityGroups=[<sg_id>],assignPublicIp=ENABLED}" \
+  --overrides '{"containerOverrides":[{"name":"todo-api","command":["python","manage.py","migrate"]}]}'
+```
+
+### 8. Access the App
+
+Now the task has a public IP through which you can access the admin dashboard:
+
+```code
+http://<PUBLIC_IP>:8000/admin/login
+```
+
+## Destroy the Deployment
+
+```bash
+# Delete service
+aws ecs delete-service --cluster todo-api-cluster --service todo-api-service --force
+
+# Delete cluster
+aws ecs delete-cluster --cluster-name todo-api-cluster
+
+# Delete ECR repo
+aws ecr delete-repository --repository-name todo-api --force
+
+# (Optional) delete IAM role
+aws iam delete-role --role-name ecsTaskExecutionRole
+```
