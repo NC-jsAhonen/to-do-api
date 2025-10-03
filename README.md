@@ -220,11 +220,8 @@ http://<PUBLIC_IP>:8000/admin/login
 aws ecs delete-service --cluster todo-api-cluster --service todo-api-service --force
 
 # Delete cluster
-aws ecs delete-cluster --cluster-name todo-api-cluster
+aws ecs delete-cluster --cluster todo-api-cluster
 
 # Delete ECR repo
-aws ecr delete-repository --repository-name todo-api --force
-
-# (Optional) delete IAM role
-aws iam delete-role --role-name ecsTaskExecutionRole
+aws ecr delete-repository --repository todo-api --force
 ```
