@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS Fargate deployment for todo-api
+
+# Before deployment:
+
+# 1. Create the ECR repository and push your Docker image there.
+
+# 2. Replace the placeholder values in the Parameters section:
+# <AWS_ACCOUNT_ID> - Your AWS Account ID
+# <REGION_ID> - AWS Region (e.g., us-east-1)
+# <DEFAULT_VPC_ID> - Your default VPC ID
+# <DEFAULT_SUBNET_ID> - A subnet ID in your default VPC
+# <ECR_REPO_URI> - The URI of your ECR repository 
+# (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/todo-api:latest)
+
+# 3. Rename this file as iac.yaml
+
+Parameters:
+  ECRImageUri:
+    Type: String
+    Description: URI of the todo-api image in ECR (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/todo-api:latest)
+    Default: <ECR_REPO_URI>
+  ClusterName:
+    Type: String
+    Default: todo-api-cluster
+  ServiceName:
+    Type: String
+    Default: todo-api-service
+  ContainerPort:
+    Type: Number
+    Default: 8000
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The default VPC ID where the ECS service will run
+    Default: <DEFAULT_VPC_ID>
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: A subnet ID in the default VPC
+    Default: <DEFAULT_SUBNET_ID>
+
+Resources:
+
+  #######################################
+  # IAM Roles
+  #######################################
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: todo-api-task-execution-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      # Not in use at the moment
+      # Policies:
+      #   - PolicyName: todo-api-ssm-access
+      #     PolicyDocument:
+      #       Version: "2012-10-17"
+      #       Statement:
+      #         - Effect: Allow
+      #           Action:
+      #             - ssm:GetParameters
+      #             - ssm:GetParameter
+      #             - secretsmanager:GetSecretValue
+      #           Resource: "*"
+
+  #######################################
+  # ECS Cluster
+  #######################################
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ClusterName
+
+  #######################################
+  # Security Group
+  #######################################
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound traffic to Django API
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  #######################################
+  # ECS Task Definition
+  #######################################
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: todo-api-task
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      ContainerDefinitions:
+        - Name: todo-api
+          Image: !Ref ECRImageUri
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          # Not in use at the moment
+          # Secrets:
+          #   - Name: DJANGO_ALLOWED_HOSTS
+          #     ValueFrom: arn:aws:ssm:<REGION_ID>:<AWS_ACCOUNT_ID>:parameter/todo-api/DJANGO_ALLOWED_HOSTS
+          Command: ["gunicorn", "todo_api.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+  #######################################
+  # ECS Service
+  #######################################
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ECSTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref SubnetId
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+    DependsOn: ECSTaskDefinition
+
+Outputs:
+  ECSClusterName:
+    Value: !Ref ECSCluster
+    Description: Name of the ECS Cluster
+  ECSServiceName:
+    Value: !Ref ECSService
+    Description: Name of the ECS Service
+  ECSTaskDefinition:
+    Value: !Ref ECSTaskDefinition
+    Description: ECS Task Definition ARN
