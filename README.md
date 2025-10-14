@@ -151,7 +151,7 @@ Replace the `<region>` and `<account_id>` with the region of your choice and the
 
 ```bash
 aws ecr create-repository --repository-name todo-api
-aws ecr get-login-password --region <region> docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account_id>.dkr.ecr.<region>.amazonaws.com
 docker build -t todo-api .
 docker tag todo-api:latest <account_id>.dkr.ecr.<region>.amazonaws.com/todo-api:latest
 docker push <account_id>.dkr.ecr.<region>.amazonaws.com/todo-api:latest
