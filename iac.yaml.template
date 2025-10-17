@@ -9,9 +9,11 @@ Description: ECS Fargate deployment for todo-api
 # <AWS_ACCOUNT_ID> - Your AWS Account ID
 # <REGION_ID> - AWS Region (e.g., us-east-1)
 # <DEFAULT_VPC_ID> - Your default VPC ID
-# <DEFAULT_SUBNET_ID> - A subnet ID in your default VPC
+# <DEFAULT_SUBNET_ID_1> - A subnet ID in your default VPC
+# <DEFAULT_SUBNET_ID_2> - Another subnet ID in your default VPC
 # <ECR_REPO_URI> - The URI of your ECR repository 
 # (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/todo-api:latest)
+# <TODO_API_TARGET_GROUP_ARN> - The EC2 target group ARN
 
 # 3. Rename this file as iac.yaml
 
@@ -33,10 +35,19 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: The default VPC ID where the ECS service will run
     Default: <DEFAULT_VPC_ID>
-  SubnetId:
+  SubnetIdOne:
     Type: AWS::EC2::Subnet::Id
     Description: A subnet ID in the default VPC
-    Default: <DEFAULT_SUBNET_ID>
+    Default: <DEFAULT_SUBNET_ID_1>
+  SubnetIdTwo:
+    Type: AWS::EC2::Subnet::Id
+    Description: Another subnet ID in your default VPC
+    Default: <DEFAULT_SUBNET_ID_2>
+  TodoApiTargetGroup:
+    Type: String
+    Description: The ARN of the Target Group for the todo-api service
+    Default: <TODO_API_TARGET_GROUP_ARN>
+
 
 Resources:
 
@@ -123,6 +134,7 @@ Resources:
   #######################################
   ECSService:
     Type: AWS::ECS::Service
+    DependsOn: ECSTaskDefinition
     Properties:
       ServiceName: !Ref ServiceName
       Cluster: !Ref ECSCluster
@@ -133,10 +145,14 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           Subnets:
-            - !Ref SubnetId
+            - !Ref SubnetIdOne
+            - !Ref SubnetIdTwo
           SecurityGroups:
             - !Ref ECSSecurityGroup
-    DependsOn: ECSTaskDefinition
+      LoadBalancers:
+        - TargetGroupArn: !Ref TodoApiTargetGroup
+          ContainerName: todo-api
+          ContainerPort: !Ref ContainerPort
 
 Outputs:
   ECSClusterName:
