@@ -27,7 +27,7 @@ router.register(r'items', ItemViewSet)
 router.register(r'lists', ListViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('api/', include(router.urls)),
     path('admin/', admin.site.urls),
     path('helloworld', hello_world)
 ]

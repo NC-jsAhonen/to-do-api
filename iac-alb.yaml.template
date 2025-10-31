@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Shared Application Load Balancer for todo-api and todo-ui ECS services
+
+# Before deployment:
+
+# 1. Replace the placeholder values in the Parameters section:
+# <DEFAULT_VPC_ID> - Your default VPC ID
+# <DEFAULT_SUBNET_ID_1> - A subnet ID in your default VPC
+# <DEFAULT_SUBNET_ID_2> - Another subnet ID in your default VPC
+
+# 2. Rename this file as iac-alb.yaml
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The default VPC ID where the ALB will be created
+    Default: <DEFAULT_VPC_ID>
+  SubnetIdOne:
+    Type: AWS::EC2::Subnet::Id
+    Description: A subnet ID in your default VPC
+    Default: <DEFAULT_SUBNET_ID_1>
+  SubnetIdTwo:
+    Type: AWS::EC2::Subnet::Id
+    Description: Another subnet ID in your default VPC
+    Default: <DEFAULT_SUBNET_ID_2>
+  TodoApiServiceName:
+    Type: String
+    Default: todo-api-service
+  TodoUiServiceName:
+    Type: String
+    Default: todo-ui-service
+  TodoApiClusterName:
+    Type: String
+    Default: todo-api-cluster
+  TodoUiClusterName:
+    Type: String
+    Default: todo-ui-cluster
+
+Resources:
+
+  #######################################
+  # Security Group for ALB
+  #######################################
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic to ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  #######################################
+  # Application Load Balancer
+  #######################################
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: todo-shared-alb
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !Ref SubnetIdOne
+        - !Ref SubnetIdTwo
+
+  #######################################
+  # Target Groups
+  #######################################
+  TodoApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: todo-api-tg
+      Port: 8000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VpcId
+      HealthCheckPath: /admin/login
+      Matcher:
+        HttpCode: 200-399
+
+  TodoUiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: todo-ui-tg
+      Port: 80
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VpcId
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200-399
+
+  #######################################
+  # ALB Listener + Rules
+  #######################################
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TodoUiTargetGroup
+
+  ApiListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref ALBListener
+      Priority: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /api/*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TodoApiTargetGroup
+
+Outputs:
+  ALBPublicDNS:
+    Description: Public DNS name of the ALB
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
